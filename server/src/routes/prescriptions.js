@@ -1,0 +1,86 @@
+const r = require("express").Router(), PDF = require("pdfkit");
+const { Appointment, Doctor, Prescription, Reminder, RxTemplate } = require("../models"), { notify } = require("../lib/notify"), { times } = require("../lib/dose"), { protect } = require("../auth"), canChat = require("../chatAccess");
+const { cleanRx } = require("../lib/rx"), { nowIn } = require("../lib/clock");
+const validId = (x) => require("mongoose").isValidObjectId(x);
+
+r.post("/", protect("doctor"), async (req, res) => {
+  const d = await Doctor.findOne({ user: req.user.id });
+  const a = d && await Appointment.findOne({ _id: req.body.appointment, doctor: d._id, status: { $in: ["booked", "done"] } });
+  if (!a) return res.status(404).json({ error: "Appointment not found" });
+  const c = cleanRx(req.body, nowIn().date);
+  if (c.error) return res.status(400).json({ error: c.error });
+  const p = await Prescription.findOneAndUpdate({ appointment: a._id }, { doctor: d._id, patient: a.patient, ...c.value },
+    { upsert: true, new: true, setDefaultsOnInsert: true });
+  const dn = d.name.replace(/^Dr\.?\s*/i, "");
+  notify(a.patient, "New prescription", `Dr. ${dn} added a prescription for your visit on ${a.date}.` + (c.value.followUp ? ` Follow-up: ${c.value.followUp}.` : ""), "prescription");
+  res.status(201).json(p);
+});
+
+// The doctor opens the prescription they already wrote for a visit, to edit it.
+r.get("/for/:appointment", protect("doctor"), async (req, res) => {
+  const d = await Doctor.findOne({ user: req.user.id });
+  if (!d || !validId(req.params.appointment)) return res.json(null);
+  res.json(await Prescription.findOne({ appointment: req.params.appointment, doctor: d._id }).lean());
+});
+
+// Saved prescriptions the doctor can reuse (the doctor's own list only).
+r.get("/templates", protect("doctor"), async (req, res) => {
+  const d = await Doctor.findOne({ user: req.user.id });
+  res.json(d ? await RxTemplate.find({ doctor: d._id }).sort("name").lean() : []);
+});
+r.post("/templates", protect("doctor"), async (req, res) => {
+  const d = await Doctor.findOne({ user: req.user.id });
+  if (!d) return res.status(404).json({ error: "No doctor profile" });
+  const name = String(req.body.name || "").trim().slice(0, 60);
+  if (!name) return res.status(400).json({ error: "Give the template a name" });
+  const c = cleanRx({ ...req.body, followUp: "" }, nowIn().date);
+  if (c.error) return res.status(400).json({ error: c.error });
+  const { followUp, ...body } = c.value;
+  if (!(await RxTemplate.exists({ doctor: d._id, name })) && (await RxTemplate.countDocuments({ doctor: d._id })) >= 30)
+    return res.status(400).json({ error: "You can keep up to 30 templates" });
+  res.status(201).json(await RxTemplate.findOneAndUpdate({ doctor: d._id, name }, { doctor: d._id, name, ...body }, { upsert: true, new: true, setDefaultsOnInsert: true }));
+});
+r.delete("/templates/:id", protect("doctor"), async (req, res) => {
+  const d = await Doctor.findOne({ user: req.user.id });
+  if (d && validId(req.params.id)) await RxTemplate.deleteOne({ _id: req.params.id, doctor: d._id });
+  res.json({ ok: true });
+});
+
+// Patient's own prescriptions, newest first.
+r.get("/mine", protect("patient"), async (req, res) =>
+  res.json(await Prescription.find({ patient: req.user.id }).sort("-createdAt").populate("doctor", "name specialty").populate("appointment", "date time")));
+
+// One tap: turn a prescription into daily medicine reminders. Safe to repeat; the same prescription never adds twice.
+r.post("/:id/reminders", protect("patient"), async (req, res) => {
+  const p = await Prescription.findOne({ _id: req.params.id, patient: req.user.id });
+  if (!p) return res.status(404).json({ error: "Prescription not found" });
+  if (await Reminder.exists({ prescription: p._id })) return res.json({ created: 0, message: "Reminders for this prescription already exist" });
+  const docs = [];
+  for (const m of p.medicines) for (const t of times(m.dose)) docs.push({ patient: req.user.id, medicine: m.name, time: t, prescription: p._id });
+  await Reminder.insertMany(docs);
+  res.status(201).json({ created: docs.length });
+});
+
+r.get("/:appointment/pdf", protect(), async (req, res) => {
+  if (!(await canChat(req.user.id, req.params.appointment))) return res.status(403).json({ error: "Not allowed" });
+  const p = await Prescription.findOne({ appointment: req.params.appointment }).populate("doctor patient", "name specialty qualification clinic");
+  if (!p) return res.status(404).json({ error: "No prescription for this visit yet" });
+  res.setHeader("Content-Type", "application/pdf");
+  res.setHeader("Content-Disposition", "attachment; filename=prescription.pdf");
+  const d = new PDF({ margin: 50 }); d.pipe(res);
+  d.fontSize(24).text("MediSync").fontSize(11).fillColor("#555").text("Prescription").moveDown().fillColor("#000");
+  d.fontSize(12).text("Doctor: " + p.doctor.name + " (" + p.doctor.specialty + ")");
+  if (p.doctor.qualification) d.text("Qualification: " + p.doctor.qualification);
+  if (p.doctor.clinic) d.text("Clinic: " + p.doctor.clinic);
+  d.text("Patient: " + p.patient.name).text("Date: " + p.updatedAt.toISOString().slice(0, 10)).moveDown();
+  if (p.diagnosis) d.text("Diagnosis: " + p.diagnosis).moveDown();
+  d.fontSize(14).text("Medicines").fontSize(12);
+  p.medicines.forEach((m, i) => d.text(`${i + 1}. ${m.name}${m.dose ? " - " + m.dose : ""} - ${m.days} day(s)`));
+  if (p.tests) d.moveDown().fontSize(14).text("Tests advised").fontSize(12).text(p.tests);
+  if (p.notes) d.moveDown().text("Notes: " + p.notes);
+  if (p.followUp) d.moveDown().text("Follow-up visit: " + p.followUp);
+  d.moveDown(2).fontSize(11).fillColor("#000").text("Signature: " + p.doctor.name);
+  d.moveDown().fontSize(9).fillColor("#777").text("Demo document made with MediSync. Follow your own doctor's advice.");
+  d.end();
+});
+module.exports = r;

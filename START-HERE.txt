@@ -1,0 +1,83 @@
+MEDISYNC - MERN WEB APP + FLUTTER MOBILE APP   (nothing to edit)
+
+Folders:  server (API)   client (website)   mobile (Flutter app)   docs
+
+A) Website + server
+   1. Double-click RUN-MEDISYNC.bat   (first time installs packages, 3 to 5 minutes, needs internet)
+   2. Open Chrome:  http://localhost:5173
+
+B) Flutter mobile app on your phone (USB cable)
+   1. Keep RUN-MEDISYNC.bat running (it runs the server).
+   2. Plug in the phone, USB debugging ON, tap Allow. Samsung: Auto Blocker OFF.
+   3. Double-click RUN-MOBILE.bat   (first time it adds the android files; first build takes several minutes)
+   The app opens on the phone. Patient and Doctor both log in on the same screen.
+
+C) One link for your mam: read DEPLOY.md.  An APK you can send: BUILD-APK.bat.
+
+Logins:  Doctor ananya@medisync.com / Doctor@123    Patient patient@medisync.com / Patient@123
+         Admin (website only) admin@medisync.com / Admin@123
+
+NEW FEATURES (web + server, and the Flutter app where marked)
+ - Health card with QR code (web, app)          - Nearby hospitals and pharmacies (web, app)
+ - Family members, book visits for them (web, app)
+ - Doctor schedule and earnings (web, app)       - Welcome slides and dark mode (app)
+ - Queue token on your visit, add to calendar (web)
+ - Doctor follow-up suggestion when marking a visit done (web)
+ - Medicine info search (web)                    - Admin announcements, sent to all patients (web)
+After updating an OLD copy of the project: run  npm install  inside the client folder once (RUN-MEDISYNC.bat does it).
+
+PROFILES AND PHOTOS (new in this version)
+ - Every doctor logs in with their own email and password and sees THEIR OWN profile: photo, specialty,
+   qualification, clinic, fee, experience, languages, about, and a change-password option. (web: Profile tab, app: Profile tab)
+ - Doctors and patients can add a profile photo (web: Add photo, app: tap the camera button).
+   Patients see each doctor's photo, qualification and clinic when booking. Doctors see each patient's photo.
+ - Patient profile now has weight, city and an automatic BMI (web).
+ - A new doctor can sign up on the login page ("I am a doctor" -> Create account) and gets their own login.
+Photos are shrunk automatically. Use a small JPG, PNG or WebP picture.
+
+NEW IN THIS VERSION (v5)
+ - Favorite doctors: tap the star on a doctor (app) or "Save as favorite" (website), then filter by Favorites.
+ - Health timeline: visits, prescriptions, readings and records in one list, newest first (web tab "Timeline", app: More).
+ - Doctor private notes: a doctor can write notes about each patient. Only that doctor can see them
+   (web: My patients -> Open summary, app: notes icon on an appointment).
+ - App: Daily wellness (water tracker, tip of the day, BMI calculator), Medicine info, Emergency numbers (tap to call).
+ - Web: Emergency numbers on the Emergency tab, Health timeline shortcut on Home.
+After updating an old copy: run RUN-MEDISYNC.bat as usual. No database change is needed.
+
+
+=====================================================================
+NEW IN THIS VERSION (v5)
+=====================================================================
+Patients
+ - Reschedule a booked visit (website: Reschedule button in My visits; app: the repeat icon in My visits).
+ - Vaccinations: save vaccines taken and the next dose date. Overdue and due-soon doses show first.
+   Website tab "Vaccines", app More -> Vaccinations.
+Doctors
+ - Days off: pick dates you are away. Patients cannot book those dates and patients who already booked
+   that day get a notification to reschedule. Website tab "Days off", app Profile -> Days off.
+Real phone, no cable
+ - Start RUN-MEDISYNC.bat, put phone and laptop on the same Wi-Fi, plug the phone in once and
+   double-click RUN-MOBILE-WIFI.bat. It finds your laptop address, builds the app and installs it.
+   Afterwards the phone works over Wi-Fi without the cable.
+ - If the laptop address changes, tap "Server" on the app login screen and type the new address
+   (for example 192.168.1.5). "Reset" goes back to the USB address.
+ - If the phone cannot connect, run RUN-MOBILE-WIFI.bat once as administrator (opens port 5000 in Windows Firewall).
+
+
+=====================================================================
+NEW IN VERSION 6: DOCTOR SIDE (website and phone app)
+=====================================================================
+In the phone app, the doctor's Appointments tab now has these buttons on every visit:
+ - Video call (camera icon): opens the video room, the same room the patient joins.
+ - Write prescription (pill icon): diagnosis, up to 10 medicines (name, dose, days), lab tests advised,
+   follow-up date and notes. Open it again to edit. The patient is notified, sees the follow-up date and can
+   download the PDF, which now also shows the doctor's qualification, clinic, tests, follow-up and a signature line.
+ - Private notes (note icon): as before.
+In the doctor Profile tab:
+ - Working hours: choose working days, start and end time and minutes per visit.
+ - Days off: dates you are away (patients cannot book them).
+ - Prescription templates: on the prescription screen tap "Save as template", for example "Viral fever".
+   Next time tap "Use a template" and the medicines fill in one tap. The website prescription form has the same
+   template list, lab tests and follow-up date.
+Fixed: the patient app button "Add to reminders" (on Prescriptions) did not work. It now adds the medicine reminders.
+If other doctors cannot log in: open a terminal in the server folder and run  npm run seed

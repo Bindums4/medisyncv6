@@ -1,0 +1,14 @@
+{
+  "name": "MediSync",
+  "short_name": "MediSync",
+  "description": "Book doctors, video consults, prescriptions and reminders.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#F4F8F6",
+  "theme_color": "#0F8F76",
+  "icons": [
+    { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "maskable" }
+  ]
+}
